@@ -1,0 +1,306 @@
+---
+title: "Final Project: US Traffic Congestion Analysis 2016-2022"
+subtitle: "STAT 230 Spring 2025"
+author: 
+  - Darryl Carpenter
+  - Derek Riera
+  - Faith Puppala
+  - Michael Ogbuehi 
+format:
+  html:
+    embed-resources: true
+---
+
+## Data
+
+The dataset used in this project was sourced from Kaggle and contains U.S. traffic congestion data from 2016 to 2022. It includes detailed records of congestion events, weather conditions, and location metadata timestamps, and traffic delays.
+
+```{r}
+#Load necessary libraries
+library(tidyverse)
+library(lubridate)
+library(usmap)
+library(ggplot2)
+
+
+#Load dataset
+congestions <- read_csv("Data/us_congestion_2016_2022_sample_2m.csv", 
+                        col_types = cols(
+                          Severity = col_double(),
+                          StartTime = col_datetime(format = ""),
+                          EndTime = col_datetime(format = ""),
+                          State = col_factor(),
+                          Weather_Conditions = col_factor()
+                        ))
+
+#Check for missing or failed-to-parse data
+failed_dates <- sum(is.na(congestions$StartTime))
+failed_severity <- sum(is.na(congestions$Severity))
+
+#Print failed counts
+print(paste("Failed to parse StartTime:", failed_dates, "rows"))
+print(paste("Missing Severity values:", failed_severity, "rows"))
+
+#Remove rows with missing timestamps, severity, or state
+congestions_clean <- congestions |> drop_na(StartTime, EndTime, Severity, State)
+
+#Count occurrences of each severity level after cleaning
+severity_counts_clean <- congestions_clean |> 
+  group_by(Severity) |>
+  summarize(Count = n(), .groups = "drop") |>
+  arrange(Severity)
+
+#Print severity counts after cleaning
+print(severity_counts_clean)
+
+#Preview cleaned dataset
+glimpse(congestions_clean)
+```
+
+The data was cleaned as follows:
+
+-   Removed rows with missing or failed-to-parse datetime (`StartTime`, `EndTime`), severity, and state values using `drop_na`.
+-   Ensured that date parsing was successful by checking for `NA` values in datetime columns.
+-   Grouped and counted severity levels post-cleaning to assess data distribution.
+
+## Variables
+
+| **Variable** | **Type** | **Description** |
+|----|----|----|
+| `ID` | Categorical (String) | Unique identifier for each congestion record |
+| `Severity` | Numeric (Discrete) | Congestion severity level (0 to 4) |
+| `Start_Lat`, `Start_Lng` | Numeric (Continuous) | GPS coordinates where the congestion event begins |
+| `StartTime`, `EndTime` | Datetime | Start and end time of congestion event |
+| `Distance(mi)` | Numeric (Continuous) | Length of the congestion in miles |
+| `DelayFromTypicalTraffic(mins)` | Numeric (Continuous) | Delay compared to normal traffic conditions |
+| `DelayFromFreeFlowSpeed(mins)` | Numeric (Continuous) | Delay compared to free-flowing speed conditions |
+| `Congestion_Speed` | Categorical (String) | Traffic speed category (e.g., Slow, Moderate, Fast) |
+| `Description` | Categorical (String) | Text description of the congestion event |
+| `Street`, `City`, `County`, `ZipCode`, `Country` | Categorical (String) | Location information for the event |
+| `State` | Categorical (String) | U.S. state where the congestion occurred |
+| `Region` | Categorical (Derived) | U.S. Census Bureau region (Northeast, Midwest, South, West) *(You’ll need to derive this column yourself based on `State`)* |
+| `LocalTimeZone` | Categorical (String) | Time zone of the event |
+| `WeatherStation_AirportCode` | Categorical (String) | Nearest weather station code |
+| `WeatherTimeStamp` | Datetime | Time of recorded weather data |
+| `Weather_Conditions` | Categorical (String) | General weather conditions (e.g., Clear, Rain, Snow) |
+| `Weather_Event` | Categorical (String) | Specific weather events (e.g., Thunderstorm, Fog) |
+| `Temperature(F)` | Numeric (Continuous) | Ambient temperature in Fahrenheit |
+| `WindChill(F)` | Numeric (Continuous) | Wind chill temperature in Fahrenheit |
+| `Humidity(%)` | Numeric (Continuous) | Percentage of humidity |
+| `Pressure(in)` | Numeric (Continuous) | Atmospheric pressure in inches |
+| `Visibility(mi)` | Numeric (Continuous) | Visibility distance in miles |
+| `WindDir` | Categorical (String) | Wind direction (e.g., NW, SSW) |
+| `WindSpeed(mph)` | Numeric (Continuous) | Wind speed in miles per hour |
+| `Precipitation(in)` | Numeric (Continuous) | Amount of precipitation in inches |
+
+## Questions
+
+1.  **Descriptive (Numeric Focused):**
+
+    "What is the distribution of traffic congestion severity in the U.S. between 2016 and 2022, and what factors influence this distribution?"
+
+2.  **Grouped (Categorical + Numeric):**
+
+    "How does the average congestion severity vary by state, and which states show significant differences?"
+
+## Plots
+
+```{r}
+congestions_clean |>
+  ggplot(aes(x = factor(Severity, levels = c(0,1,2,3,4)))) +  
+  geom_bar(fill = "steelblue", alpha = 0.7) +
+  scale_y_log10() +
+  labs(title = "Distribution of Traffic Congestion Severity (2M Sample)",
+       x = "Severity Level",
+       y = "Count (Log Scale)") +
+  theme_minimal()
+
+```
+
+### **Purpose of the Plot**
+
+This histogram provides a visual summary of how traffic congestion severity levels are distributed across a sample of 2 million records from the dataset. The `Severity` variable is ordinal, ranging from **0 (least severe)** to **4 (most severe)**.
+
+#### **Key Observations:**
+
+1.  **Severity Levels 0 to 2 Dominate**\
+
+    The majority of congestion events fall under severity levels **0, 1, and 2**, indicating that most traffic congestion events in the dataset are **low to moderate in severity**.
+
+2.  **Logarithmic Y-Axis**\
+
+    The y-axis uses a **logarithmic scale** to better visualize differences between categories, especially given the large data volume. This prevents higher frequencies (e.g., Severity 1) from overshadowing less frequent categories (e.g., Severity 4).
+
+3.  **Severity Level 4 Is Rare**\
+
+    Events with severity level **4** are **significantly less common** than all other categories. This suggests that highly severe congestion events are relatively rare, and could be considered outliers or special cases worth further analysis.
+
+4.  **Comparative Volume**\
+
+    Although the severity scale is only from 0 to 4, the counts vary greatly across these levels. **Severity 1** appears to be the most frequent, followed closely by levels 0 and 2.
+
+5.  A **right-skewed** distribution means that most of the data is concentrated on the **left side** (lower severity levels), and the **tail** extends to the **right** (toward higher severity levels).
+
+```{r}
+# Define U.S. regions based on Census Bureau
+state_regions <- tibble(
+  State = c("CT", "ME", "MA", "NH", "RI", "VT", "NJ", "NY", "PA",  # Northeast
+            "IL", "IN", "MI", "OH", "WI", "IA", "KS", "MN", "MO", "NE", "ND", "SD",  # Midwest
+            "DE", "FL", "GA", "MD", "NC", "SC", "VA", "DC", "WV", "AL", "KY", "MS", "TN", "LA", "TX", "OK", "AR",  # South
+            "AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NV", "NM", "OR", "UT", "WA", "WY"),  # West
+  Region = c(rep("Northeast", 9), 
+             rep("Midwest", 12),
+             rep("South", 17),  
+             rep("West", 13))
+)
+
+# Merge region info
+congestions_clean <- congestions_clean |> 
+  left_join(state_regions, by = "State")
+
+# Box Plot - Severity by Region and State
+congestions_clean |>
+  ggplot(aes(x = State, y = Severity, fill = Region)) +
+  geom_boxplot(alpha = 0.7) +
+  facet_wrap(~ Region, scales = "free_x") +
+  labs(title = "Traffic Congestion Severity by Region (2M Sample)",
+       x = "State",
+       y = "Severity Level",
+       fill = "Region") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### **Purpose of the Plot**
+
+This box plot provides a comparative analysis of **traffic congestion severity levels** across U.S. states, grouped by **Census Bureau regions** (Midwest, Northeast, South, West), based on a sample of 2 million congestion events.
+
+#### **Key Observations:**
+
+1.  **Central Tendency Across States** In most states, the **median severity** falls between **1 and 2**, indicating that **mild to moderate congestion** is the norm across the country.
+
+2.  **Consistency Across Regions**\
+    All four regions — **Midwest, Northeast, South, and West** — display a **similar central tendency**. The distributions are fairly consistent, suggesting that regional differences in average congestion severity are **relatively minor**.
+
+3.  **Presence of Outliers**\
+    Several states, such as Indiana (IN), Pennsylvania (PA), and Texas (TX), show **outliers** with higher severity levels. These outliers suggest occasional occurrences of more severe congestion events in specific states.
+
+4.  **Variation Within the South**\
+    The **South** region exhibits a **slightly wider interquartile range (IQR)** compared to the other regions. This implies that **severity levels are somewhat more variable** in the South than elsewhere.
+
+5.  **General Low Severity**\
+    Across all regions, congestion events at the most severe level (Severity 4) are **rare**, which aligns with the distribution shown in the earlier histogram.
+
+```{r}
+# Scatter plot between Temperature and Severity
+congestions_clean |>
+  ggplot(aes(x = `Temperature(F)`, y = Severity)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Relationship Between Temperature and Congestion Severity", 
+       x = "Temperature (°F)", y = "Congestion Severity")
+
+```
+
+## Descriptive Analysis
+
+```{r}
+# Summary statistics of Severity by Region
+# Summary statistics of Severity by Region (no na.rm = TRUE)
+congestions_clean |> 
+  group_by(Region) |>
+  summarize(
+    Mean_Severity = mean(Severity),
+    SD_Severity = sd(Severity),
+    Min_Severity = min(Severity),
+    Max_Severity = max(Severity)
+  )
+
+```
+
+Summary statistics of congestion severity by region indicate that severity levels are generally low across all regions, with mean values hovering slightly above 1. The **West region** shows the highest average severity at approximately **1.12**, while the **Northeast** exhibits the lowest at around **0.99**. Standard deviations are relatively small (around 0.77 to 0.81), suggesting limited variability in severity within each region. The minimum severity recorded is 0 in all regions, while the maximum severity reaches 4 in the Midwest, South, and West, but only 3 in the Northeast.
+
+## Inferential Statistics - Anova
+
+```{r}
+# Run ANOVA to test if Severity differs across Regions
+anova_result <- aov(Severity ~ Region, data = congestions_clean)
+summary(anova_result)
+
+```
+
+```{r}
+# Build a linear model
+model_severity <- lm(Severity ~ Region, data = congestions_clean)
+
+# Run ANOVA on the model
+anova(model_severity)
+
+```
+
+The ANOVA table output shows:
+
+-   **F-statistic**: 2466
+
+-   **p-value**: \< 2e-16
+
+    Since the p-value is extremely small (less than 0.001), it provides strong evidence against the null hypothesis.
+
+The results of the ANOVA test indicate that **there is a statistically significant difference in average congestion severity between regions** (F(3, 1,998,173) = 2466, p \< 0.001).\
+
+Thus, we reject the null hypothesis and conclude that regional location does influence the severity of traffic congestion events.\
+
+However, while the difference is statistically significant, the practical differences in mean severity are **relatively small** (ranging between 0.99 and 1.12), suggesting that congestion severity is fairly similar across regions.
+
+## Average Traffic Congestion Severity - Usmap
+
+```{r}
+#if you are running the section for the second time please comment the two lines below
+congestions_clean <- congestions_clean |> 
+  rename(Delay_Mins = `DelayFromTypicalTraffic(mins)`)
+by_state <- congestions_clean |> 
+  group_by(State) |> 
+  summarize(
+    avg_severity = mean(Severity),
+    total_events = n(),
+    avg_delay = mean(Delay_Mins, na.rm = TRUE),
+    .groups = "drop"
+  ) |> 
+  left_join(state_regions, by = "State") |>
+  mutate(state = state.name[match(State, state.abb)]) |>
+  filter(!is.na(state))
+# Calculate average severity per state
+state_avg_severity <- congestions_clean |> 
+  group_by(State) |>
+  summarize(avg_severity = mean(Severity, na.rm = TRUE))
+
+# Plot choropleth map
+plot_usmap(data = by_state, values = "avg_severity", regions = "states") +
+  scale_fill_continuous(
+    low = "lightyellow", high = "red",
+    name = "Avg Severity", label = scales::comma
+  ) +
+  labs(title = "Average Traffic Congestion Severity by State (2016–2022)") +
+  theme(legend.position = "right")
+
+```
+
+This US map visualizes the average traffic congestion severity per state from 2016 to 2022. While states like **Texas and California** are well-known for frequent congestion, their **average severity appears moderate rather than extreme**. This is because they have **many recorded events**, many of which fall under **mild to moderate severity (Levels 1–2).**
+
+In contrast, states such as **Montana, North Dakota, or Vermont** appear darker on the map — **not necessarily because they have more traffic**, but because their **fewer recorded events tend to be more severe on average**, raising their overall severity score.
+
+**This highlights an important distinction: the map shows average severity per event, not the total number of events.** This map should be interpreted alongside metrics like **total congestion events** or **average delay times** to fully understand the traffic burden. Let me know if you'd like a version with italic emphasis or heading style too.
+
+## Conclusion
+
+This project explored U.S. traffic congestion patterns from 2016 to 2022 using a dataset of over 2 million records. Careful data cleaning, visualization, and statistical analysis revealed several key insights.
+
+The histogram of congestion severity showed that most events are mild, with Severity levels 0, 1, and 2 accounting for nearly all recorded incidents. The boxplot, grouped by state and faceted by Census region, revealed that most states have a median severity near 1–2, with some variation and outliers, particularly in states like Indiana and Pennsylvania. The South region exhibited slightly more variability in severity based on interquartile range.
+
+The scatterplot between temperature and severity helped explore environmental influence, but showed no meaningful relationship, indicating that congestion severity is not strongly affected by ambient temperature. Summary statistics across regions showed slight differences in mean severity values, with the West having the highest average (around 1.12) and the Northeast the lowest (just under 1.00).
+
+To test whether regional differences were statistically significant, an ANOVA was conducted. The p-value (\< 0.001) and F-statistic (\> 2400) confirmed a statistically significant difference between regions. However, the actual difference in mean severity was slight, reinforcing the need to balance statistical results with practical interpretation.
+
+Finally, the US choropleth map provided a spatial understanding of average severity by state. While states like Montana and North Dakota appeared darker due to higher average severity, this resulted from fewer total events, skewed by severe outliers. In contrast, high-traffic states like California and Texas showed moderate shading, reflecting a large volume of mostly low-to-moderate severity events.
+
+These visualizations and analyses demonstrate how combining statistical tools with clear visual communication can uncover expected patterns and deeper insights into real-world transportation data.
