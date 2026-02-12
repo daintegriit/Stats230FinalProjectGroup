@@ -1,30 +1,20 @@
-## 🛠️ Getting Started
+## Getting Started
 To view this project and explore our analysis:
 
 ---
 
-### 📄 Open the Report
+### Open the Report
 → Click on `congestion.html` to see the full rendered analysis in your browser.
 - All visualizations and statistical summaries are included in this file.
 
----
-
-### 📺 Watch the Final Video Presentation
-→ View on Google Drive
-- [Watch Final Video Presentation](https://drive.google.com/drive/folders/1YH9VfBE5vXW3ohmNv2q-CtoAkWiNnkw9?usp=drive_link)
-- You can stream or download the file (top-right corner in Google Drive)
-- Note: Due to GitHub file limits, the video presentation is hosted externally.
-
----
-
-### 📁 Access the Full Dataset (optional)
+### Access the Full Dataset (optional)
 → Download CSV from Google Drive
 [Download Full Dataset from Google Drive](https://drive.google.com/drive/folders/1YH9VfBE5vXW3ohmNv2q-CtoAkWiNnkw9?usp=drive_link
 - Note: Due to GitHub file limits, the full dataset is hosted externally.
 
 ---
 
-### 🔄 Reproduce the Analysis Locally (Optional)
+### Reproduce the Analysis Locally (Optional)
 
 1. Clone or download this GitHub repository.
 → You can click the green Code button and select Download ZIP or use git clone.
